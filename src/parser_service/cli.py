@@ -25,6 +25,9 @@ from src.parser_service.kafka_producer import (
 from src.parser_service.cfg_builder import (
     extract_cfg_events,
 )
+from src.parser_service.dfg_builder import (
+    extract_dfg_events,
+)
 
 DEFAULT_REPO_ID = "github:huggingface/trl"
 
@@ -117,6 +120,15 @@ def parse_file_command(args: argparse.Namespace) -> int:
         relative_path=source_file.relative_path,
     )
 
+    dfg_extraction = extract_dfg_events(
+        source=source_file.source,
+        repo_id=args.repo_id,
+        commit_sha=commit_sha,
+        file_id=file_id,
+        content_hash=source_file.content_hash,
+        relative_path=source_file.relative_path,
+    )
+
     all_node_events = (
         extraction.node_events
         + cfg_extraction.node_events
@@ -125,6 +137,7 @@ def parse_file_command(args: argparse.Namespace) -> int:
     all_edge_events = (
         extraction.edge_events
         + cfg_extraction.edge_events
+        + dfg_extraction.edge_events
     )
 
     parse_duration_ms = (
@@ -140,6 +153,7 @@ def parse_file_command(args: argparse.Namespace) -> int:
         node_count=len(extraction.node_events),
         ast_edge_count=len(extraction.edge_events),
         cfg_edge_count=len(cfg_extraction.edge_events),
+        dfg_edge_count=len(dfg_extraction.edge_events),
     )
 
     writer = LocalEventWriter(args.output)
@@ -204,6 +218,7 @@ def parse_file_command(args: argparse.Namespace) -> int:
     print(f"CFG synthetic nodes: {len(cfg_extraction.node_events)}")
     print(f"AST edges: {len(extraction.edge_events)}")
     print(f"CFG edges: {len(cfg_extraction.edge_events)}")
+    print(f"DFG edges: {len(dfg_extraction.edge_events)}")
     print(
         f"Parse duration: "
         f"{parse_duration_ms:.3f} ms"

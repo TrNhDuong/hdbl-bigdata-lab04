@@ -18,6 +18,7 @@ def build_metadata_event(
     node_count: int,
     ast_edge_count: int,
     cfg_edge_count: int = 0,
+    dfg_edge_count: int = 0,
 ) -> MetadataEvent:
     return MetadataEvent(
         event_id=create_event_id(
@@ -43,7 +44,7 @@ def build_metadata_event(
             nodes=node_count,
             ast_edges=ast_edge_count,
             cfg_edges=cfg_edge_count,
-            dfg_edges=0,
+            dfg_edges=dfg_edge_count,
             call_edges=0,
         ),
     )
