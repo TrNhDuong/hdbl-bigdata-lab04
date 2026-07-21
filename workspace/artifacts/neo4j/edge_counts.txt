@@ -1,0 +1,2 @@
+edge_type, amount
+"AST_CHILD", 169

@@ -1,0 +1,23 @@
+{
+  "name": "neo4j-cpg-sink",
+  "config": {
+    "connector.class": "org.neo4j.connectors.kafka.sink.Neo4jConnector",
+    "tasks.max": "1",
+    "topics": "trl-cpg-nodes-v1,trl-cpg-edges-v1",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "false",
+    "neo4j.uri": "neo4j://neo4j:7687",
+    "neo4j.database": "neo4j",
+    "neo4j.authentication.type": "BASIC",
+    "neo4j.authentication.basic.username": "neo4j",
+    "neo4j.authentication.basic.password": "${NEO4J_PASSWORD}",
+    "neo4j.batch-size": "100",
+    "neo4j.batch-timeout": "1s",
+    "neo4j.cypher.bind-value-as": "__value",
+    "neo4j.cypher.bind-value-as-event": "false",
+    "neo4j.cypher.topic.trl-cpg-nodes-v1": "WITH __value AS value MERGE (repository:Repository { repo_id: value.repo_id }) SET repository.commit_sha = value.commit_sha, repository.updated_at = value.event_time MERGE (source_file:SourceFile { file_id: value.file_id }) SET source_file.repo_id = value.repo_id, source_file.path = value.path, source_file.commit_sha = value.commit_sha, source_file.content_hash = value.content_hash, source_file.updated_at = value.event_time MERGE (node:CPGNode { node_id: value.node.node_id }) SET node.file_id = value.file_id, node.content_hash = value.content_hash, node.node_kind = value.node.node_kind, node.ast_type = value.node.ast_type, node.structural_path = value.node.structural_path, node.lineno = value.node.lineno, node.col_offset = value.node.col_offset, node.end_lineno = value.node.end_lineno, node.end_col_offset = value.node.end_col_offset, node.name = value.node.name, node.code_snippet = value.node.code_snippet, node.context = value.node.properties.context, node.literal_value = value.node.properties.value, node.operator = value.node.properties.operator, node.placeholder = false, node.updated_at = value.event_time MERGE (repository)-[:CONTAINS]->(source_file) MERGE (source_file)-[:DECLARES]->(node)",
+    "neo4j.cypher.topic.trl-cpg-edges-v1": "WITH __value AS value MERGE (source:CPGNode { node_id: value.edge.src_id }) ON CREATE SET source.placeholder = true MERGE (target:CPGNode { node_id: value.edge.dst_id }) ON CREATE SET target.placeholder = true MERGE (source)-[edge:CPG_EDGE { edge_id: value.edge.edge_id }]->(target) SET edge.edge_type = value.edge.edge_type, edge.file_id = value.file_id, edge.content_hash = value.content_hash, edge.role = value.edge.properties.role, edge.branch = value.edge.properties.branch, edge.symbol = value.edge.properties.symbol, edge.resolution = value.edge.properties.resolution, edge.updated_at = value.event_time",
+    "errors.tolerance": "none"
+  }
+}
