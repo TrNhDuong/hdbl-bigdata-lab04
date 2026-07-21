@@ -1,0 +1,4 @@
+resolution, amount
+"EXACT_LOCAL", 11
+"IMPORTED_SYMBOL", 34
+"SYMBOLIC", 146

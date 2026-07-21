@@ -95,6 +95,8 @@ SET
     edge.branch = value.edge.properties.branch,
     edge.symbol = value.edge.properties.symbol,
     edge.resolution = value.edge.properties.resolution,
+    edge.callee = value.edge.properties.callee,
+    edge.target_qualified_name = value.edge.properties.target_qualified_name,
     edge.updated_at = value.event_time
 """
 

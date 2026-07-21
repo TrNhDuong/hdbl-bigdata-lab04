@@ -28,6 +28,9 @@ from src.parser_service.cfg_builder import (
 from src.parser_service.dfg_builder import (
     extract_dfg_events,
 )
+from src.parser_service.call_builder import (
+    extract_call_events,
+)
 
 DEFAULT_REPO_ID = "github:huggingface/trl"
 
@@ -129,15 +132,26 @@ def parse_file_command(args: argparse.Namespace) -> int:
         relative_path=source_file.relative_path,
     )
 
+    call_extraction = extract_call_events(
+        source=source_file.source,
+        repo_id=args.repo_id,
+        commit_sha=commit_sha,
+        file_id=file_id,
+        content_hash=source_file.content_hash,
+        relative_path=source_file.relative_path,
+    )
+
     all_node_events = (
         extraction.node_events
         + cfg_extraction.node_events
+        + call_extraction.node_events
     )
 
     all_edge_events = (
         extraction.edge_events
         + cfg_extraction.edge_events
         + dfg_extraction.edge_events
+        + call_extraction.edge_events
     )
 
     parse_duration_ms = (
@@ -154,6 +168,7 @@ def parse_file_command(args: argparse.Namespace) -> int:
         ast_edge_count=len(extraction.edge_events),
         cfg_edge_count=len(cfg_extraction.edge_events),
         dfg_edge_count=len(dfg_extraction.edge_events),
+        call_edge_count=len(call_extraction.edge_events),
     )
 
     writer = LocalEventWriter(args.output)
@@ -219,10 +234,9 @@ def parse_file_command(args: argparse.Namespace) -> int:
     print(f"AST edges: {len(extraction.edge_events)}")
     print(f"CFG edges: {len(cfg_extraction.edge_events)}")
     print(f"DFG edges: {len(dfg_extraction.edge_events)}")
-    print(
-        f"Parse duration: "
-        f"{parse_duration_ms:.3f} ms"
-    )
+    print(f"Call target nodes: {len(call_extraction.node_events)}")
+    print(f"CALLS edges: {len(call_extraction.edge_events)}")
+    print(f"Parse duration: {parse_duration_ms:.3f} ms")
     print(f"Nodes output: {node_path}")
     print(f"Edges output: {edge_path}")
     print(f"Metadata output: {metadata_path}")
