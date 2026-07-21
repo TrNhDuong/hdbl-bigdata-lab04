@@ -5,4 +5,4 @@ workspace/repos/
 checkpoints/
 _build/
 .env
-*.log
+*.logplugins/*.jar

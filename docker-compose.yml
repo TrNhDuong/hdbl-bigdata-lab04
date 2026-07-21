@@ -1,0 +1,205 @@
+name: hdbl-bigdata-lab04
+
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.8.0
+    container_name: lab-kafka
+    hostname: kafka
+    restart: unless-stopped
+
+    ports:
+      - "9092:9092"
+
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,EXTERNAL://0.0.0.0:9092
+
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect:7.8.0
+    container_name: lab-kafka-connect
+    hostname: kafka-connect
+    restart: unless-stopped
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+    ports:
+      - "8083:8083"
+
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: kafka:29092
+
+      CONNECT_REST_PORT: 8083
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+
+      CONNECT_GROUP_ID: lab-connect-cluster
+
+      CONNECT_CONFIG_STORAGE_TOPIC: lab-connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: lab-connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: lab-connect-status
+
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+
+      CONNECT_OFFSET_FLUSH_INTERVAL_MS: 10000
+
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE: "false"
+
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/usr/share/neo4j
+
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+
+    volumes:
+      - ./plugins:/usr/share/neo4j:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8083/connectors >/dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 40s
+
+  neo4j:
+    image: neo4j:2026.06.0
+    container_name: lab-neo4j
+    hostname: neo4j
+    restart: unless-stopped
+
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD}
+
+      NEO4J_server_memory_heap_initial__size: 512m
+      NEO4J_server_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512m
+
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "cypher-shell -u neo4j -p ${NEO4J_PASSWORD} 'RETURN 1' >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
+
+  mongodb:
+    image: mongo:8.0
+    container_name: lab-mongodb
+    hostname: mongodb
+    restart: unless-stopped
+
+    ports:
+      - "27017:27017"
+
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+
+    volumes:
+      - mongodb_data:/data/db
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username ${MONGO_ROOT_USERNAME} --password ${MONGO_ROOT_PASSWORD} --authenticationDatabase admin --eval \"quit(db.adminCommand({ ping: 1 }).ok ? 0 : 2)\"",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 30s
+
+  spark:
+    image: apache/spark:4.0.2-scala2.13-java17-python3-ubuntu
+    container_name: lab-spark
+    hostname: spark
+    restart: unless-stopped
+
+    depends_on:
+      kafka:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+
+    ports:
+      - "4040:4040"
+
+    working_dir: /opt/project
+
+    command: ["bash", "-lc", "tail -f /dev/null"]
+
+    volumes:
+      - ./src:/opt/project/src
+      - ./config:/opt/project/config
+      - ./workspace/artifacts:/opt/project/artifacts
+      - ./checkpoints:/opt/project/checkpoints
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "test -x /opt/spark/bin/spark-submit && python3 --version >/dev/null 2>&1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+
+volumes:
+  kafka_data:
+  neo4j_data:
+  neo4j_logs:
+  mongodb_data:
