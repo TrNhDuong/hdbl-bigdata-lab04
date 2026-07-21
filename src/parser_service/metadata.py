@@ -17,6 +17,7 @@ def build_metadata_event(
     parse_duration_ms: float,
     node_count: int,
     ast_edge_count: int,
+    cfg_edge_count: int = 0,
 ) -> MetadataEvent:
     return MetadataEvent(
         event_id=create_event_id(
@@ -41,5 +42,8 @@ def build_metadata_event(
         counts=MetadataCounts(
             nodes=node_count,
             ast_edges=ast_edge_count,
+            cfg_edges=cfg_edge_count,
+            dfg_edges=0,
+            call_edges=0,
         ),
     )

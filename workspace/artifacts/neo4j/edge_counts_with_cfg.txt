@@ -1,0 +1,3 @@
+edge_type, amount
+"AST_CHILD", 169
+"CFG_NEXT", 20

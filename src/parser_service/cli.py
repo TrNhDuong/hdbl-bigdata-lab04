@@ -22,6 +22,9 @@ from src.parser_service.source_reader import (
 from src.parser_service.kafka_producer import (
     KafkaEventPublisher,
 )
+from src.parser_service.cfg_builder import (
+    extract_cfg_events,
+)
 
 DEFAULT_REPO_ID = "github:huggingface/trl"
 
@@ -105,6 +108,25 @@ def parse_file_command(args: argparse.Namespace) -> int:
         relative_path=source_file.relative_path,
     )
 
+    cfg_extraction = extract_cfg_events(
+        source=source_file.source,
+        repo_id=args.repo_id,
+        commit_sha=commit_sha,
+        file_id=file_id,
+        content_hash=source_file.content_hash,
+        relative_path=source_file.relative_path,
+    )
+
+    all_node_events = (
+        extraction.node_events
+        + cfg_extraction.node_events
+    )
+
+    all_edge_events = (
+        extraction.edge_events
+        + cfg_extraction.edge_events
+    )
+
     parse_duration_ms = (
         perf_counter() - start_time
     ) * 1000
@@ -117,18 +139,19 @@ def parse_file_command(args: argparse.Namespace) -> int:
         parse_duration_ms=parse_duration_ms,
         node_count=len(extraction.node_events),
         ast_edge_count=len(extraction.edge_events),
+        cfg_edge_count=len(cfg_extraction.edge_events),
     )
 
     writer = LocalEventWriter(args.output)
 
     node_path = writer.write_events(
         "nodes.jsonl",
-        extraction.node_events,
+        all_node_events,
     )
 
     edge_path = writer.write_events(
         "edges.jsonl",
-        extraction.edge_events,
+        all_edge_events,
     )
 
     metadata_path = writer.write_events(
@@ -145,13 +168,13 @@ def parse_file_command(args: argparse.Namespace) -> int:
 
         published_node_count = (
             publisher.publish_node_events(
-                extraction.node_events
+                all_node_events
             )
         )
 
         published_edge_count = (
             publisher.publish_edge_events(
-                extraction.edge_events
+                all_edge_events
             )
         )
 
@@ -178,7 +201,9 @@ def parse_file_command(args: argparse.Namespace) -> int:
     print(f"File ID: {file_id}")
     print(f"Content hash: {source_file.content_hash}")
     print(f"AST nodes: {len(extraction.node_events)}")
+    print(f"CFG synthetic nodes: {len(cfg_extraction.node_events)}")
     print(f"AST edges: {len(extraction.edge_events)}")
+    print(f"CFG edges: {len(cfg_extraction.edge_events)}")
     print(
         f"Parse duration: "
         f"{parse_duration_ms:.3f} ms"
