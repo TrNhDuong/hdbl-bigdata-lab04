@@ -19,7 +19,9 @@ from src.parser_service.source_reader import (
     get_git_commit_sha,
     read_source_file,
 )
-
+from src.parser_service.kafka_producer import (
+    KafkaEventPublisher,
+)
 
 DEFAULT_REPO_ID = "github:huggingface/trl"
 
@@ -60,6 +62,18 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parse_file_parser.add_argument(
         "--repo-id",
         default=DEFAULT_REPO_ID,
+    )
+
+    parse_file_parser.add_argument(
+        "--publish-kafka",
+        action="store_true",
+        help="Gửi event vào Kafka sau khi parse",
+    )
+
+    parse_file_parser.add_argument(
+        "--bootstrap-servers",
+        default="localhost:9092",
+        help="Kafka bootstrap servers",
     )
 
     return parser
@@ -122,6 +136,43 @@ def parse_file_command(args: argparse.Namespace) -> int:
         [metadata_event],
     )
 
+    published_to_kafka = False
+
+    if args.publish_kafka:
+        publisher = KafkaEventPublisher(
+            bootstrap_servers=args.bootstrap_servers,
+        )
+
+        published_node_count = (
+            publisher.publish_node_events(
+                extraction.node_events
+            )
+        )
+
+        published_edge_count = (
+            publisher.publish_edge_events(
+                extraction.edge_events
+            )
+        )
+
+        publisher.publish_metadata_event(
+            metadata_event
+        )
+
+        publisher.flush()
+        published_to_kafka = True
+
+        print("Kafka publishing completed")
+        print(
+            f"Published node events: "
+            f"{published_node_count}"
+        )
+        print(
+            f"Published edge events: "
+            f"{published_edge_count}"
+        )
+        print("Published metadata events: 1")
+
     print("Parse completed")
     print(f"File: {source_file.relative_path}")
     print(f"File ID: {file_id}")
@@ -136,6 +187,11 @@ def parse_file_command(args: argparse.Namespace) -> int:
     print(f"Edges output: {edge_path}")
     print(f"Metadata output: {metadata_path}")
 
+    if not published_to_kafka:
+        print(
+            "Kafka publishing skipped. "
+            "Use --publish-kafka to enable it."
+        )
     return 0
 
 
